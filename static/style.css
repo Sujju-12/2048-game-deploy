@@ -1,0 +1,100 @@
+:root {
+  font-family: Arial, Helvetica, sans-serif;
+  color: #776e65;
+  background: #faf8ef;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: #faf8ef;
+}
+
+.container {
+  width: min(92vw, 520px);
+  margin: 0 auto;
+  padding: 28px 0;
+}
+
+.topbar, .intro, footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+h1 {
+  margin: 0;
+  font-size: 72px;
+  line-height: .9;
+  color: #776e65;
+}
+
+.topbar p { margin: 8px 0 0; font-weight: 700; }
+
+.scores { display: flex; gap: 8px; }
+.scores div {
+  min-width: 76px;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: #bbada0;
+  color: #fff;
+  text-align: center;
+}
+.scores span { display: block; font-size: 11px; font-weight: 700; }
+.scores strong { display: block; font-size: 24px; }
+
+.intro { margin: 26px 0 12px; }
+.intro p { margin: 0; line-height: 1.4; }
+button {
+  border: 0;
+  border-radius: 4px;
+  padding: 10px 14px;
+  background: #8f7a66;
+  color: #fff;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.game-board {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 10px;
+  border-radius: 6px;
+  background: #bbada0;
+  aspect-ratio: 1;
+  touch-action: none;
+}
+
+.tile {
+  display: grid;
+  place-items: center;
+  border-radius: 4px;
+  background: #cdc1b4;
+  font-size: clamp(24px, 8vw, 42px);
+  font-weight: 800;
+}
+
+.tile.n2 { background: #eee4da; }
+.tile.n4 { background: #ede0c8; }
+.tile.n8 { background: #f2b179; color: #f9f6f2; }
+.tile.n16 { background: #f59563; color: #f9f6f2; }
+.tile.n32 { background: #f67c5f; color: #f9f6f2; }
+.tile.n64 { background: #f65e3b; color: #f9f6f2; }
+.tile.n128 { background: #edcf72; color: #f9f6f2; font-size: clamp(20px, 7vw, 34px); }
+.tile.n256 { background: #edcc61; color: #f9f6f2; font-size: clamp(20px, 7vw, 34px); }
+.tile.n512 { background: #edc850; color: #f9f6f2; font-size: clamp(20px, 7vw, 34px); }
+.tile.n1024, .tile.n2048 { background: #edc53f; color: #f9f6f2; font-size: clamp(18px, 6vw, 30px); }
+
+.status { min-height: 24px; margin: 10px 0; font-weight: 700; }
+footer { margin-top: 16px; font-size: 13px; }
+footer a { color: inherit; }
+
+@media (max-width: 520px) {
+  h1 { font-size: 58px; }
+  .topbar { align-items: flex-start; }
+  .intro { align-items: flex-start; }
+}
