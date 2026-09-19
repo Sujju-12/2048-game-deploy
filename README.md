@@ -62,41 +62,80 @@ docker run --rm -p 5000:5000 2048-game:dev
 
 Then open `http://localhost:5000`.
 
-## Planned platform progression
+## Current DevOps platform
 
-This repo is intentionally split into application and platform concerns so the infrastructure can be built as a learning exercise:
+The repository now has the first local deployment layer:
 
-1. Git branching and pull-request workflow.
-2. CI: tests, linting, SAST, dependency/security scanning, and secret scanning.
-3. Docker image build and image vulnerability scanning.
-4. Local Kubernetes cluster.
-5. Helm chart for the Flask application.
-6. Kubernetes resource limits/requests, probes, Service, and ConfigMap/Secret patterns.
-7. GitOps repository structure and Argo CD.
-8. Horizontal scaling and rollout strategies.
-9. Prometheus and Grafana dashboards/alerts.
-10. Grafana Loki for centralized application logs.
+1. GitHub pull-request/main workflow.
+2. Pytest application tests.
+3. Docker image build.
+4. Trivy HIGH/CRITICAL vulnerability scanning.
+5. Docker Hub image publishing on pushes to main.
+6. Local Kind Kubernetes deployment.
+7. Kubernetes Deployment with 2 replicas and rolling updates.
+8. Kubernetes Service and liveness/readiness probes.
+9. Local deployment helper under scripts/kind-deploy.sh.
+
+The next platform layers can be added incrementally:
+
+10. Helm chart for the Flask application.
+11. GitOps repository structure and Argo CD.
+12. Horizontal scaling and rollout strategies.
+13. Prometheus and Grafana dashboards/alerts.
+14. Grafana Loki for centralized application logs.
+
+## GitHub Actions + Docker Hub
+
+The workflow is `.github/workflows/ci.yml`.
+
+Configure these GitHub repository secrets before pushing to `main`:
+
+- `DOCKERHUB_USERNAME` — your Docker Hub username.
+- `DOCKERHUB_TOKEN` — a Docker Hub access token with permission to push the repository.
+
+The workflow runs tests on pull requests and on pushes to `main`. On `main`, it builds and scans the image and publishes:
+
+```text
+<DOCKERHUB_USERNAME>/2048-game:latest
+<DOCKERHUB_USERNAME>/2048-game:sha-<commit-sha>
+```
+
+GitHub Actions cannot directly deploy into the Kind cluster running on your personal machine. The local Kind deployment is therefore intentionally a separate local step.
+
+## Local Kind deployment
+
+Create a Kind cluster if you do not already have one:
+
+```bash
+kind create cluster --name devops-lab
+```
+
+For a local-only image workflow:
+
+```bash
+bash scripts/kind-deploy.sh
+```
+
+The script builds `2048-game:dev`, loads it into Kind, applies the Kubernetes resources, and waits for the rollout.
+
+Then expose the Service locally:
+
+```bash
+kubectl -n game-lab port-forward svc/2048-game 5000:5000
+```
+
+Open `http://localhost:5000`.
+
+Useful checks:
+
+```bash
+kubectl get pods -n game-lab
+kubectl get svc -n game-lab
+kubectl describe deployment 2048-game -n game-lab
+kubectl logs -n game-lab deployment/2048-game
+kubectl rollout status deployment/2048-game -n game-lab
+```
 
 ## Security rule
 
-Never commit real secrets, tokens, passwords, private keys, or production `.env` files. Use Kubernetes Secrets or a dedicated secret-management workflow later in the platform build.
-
-## Suggested target repository structure
-
-```text
-2048-game-deploy/
-├── app.py
-├── requirements.txt
-├── Dockerfile
-├── .env.example
-├── .gitignore
-├── templates/
-│   └── index.html
-├── static/
-│   ├── game.js
-│   └── style.css
-└── tests/
-    └── test_app.py
-```
-
-The Kubernetes manifests, Helm chart, Argo CD configuration, CI pipeline, and observability stack are deliberately left for the DevOps portion of the lab.
+Never commit real secrets, tokens, passwords, private keys, or production `.env` files. Use GitHub Actions secrets for CI credentials and Kubernetes Secrets or a dedicated secret-management workflow later in the platform build.
