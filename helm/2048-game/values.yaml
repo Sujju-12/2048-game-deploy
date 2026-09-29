@@ -24,7 +24,9 @@ autoscaling:
   targetCPUUtilizationPercentage: 70
 
 serviceMonitor:
-  enabled: false
+  enabled: true
+  interval: 30s
+  path: /metrics
 
 env:
   PORT: "5000"
