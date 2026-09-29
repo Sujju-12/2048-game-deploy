@@ -1,5 +1,19 @@
 # Prometheus + Grafana + Alertmanager (Prometheus Operator CRDs included)
+# Tuned for Kind: control-plane metrics (etcd, scheduler, controller-manager, kube-proxy)
+# are not reachable on the node IP — disable those scrapes to avoid "connection refused" noise.
 fullnameOverride: kube-prometheus-stack
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: false
 
 grafana:
   enabled: true
