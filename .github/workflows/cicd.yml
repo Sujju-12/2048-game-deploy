@@ -9,8 +9,8 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      skip_deploy:
-        description: Run tests only (no Docker Hub push / Render deploy)
+      skip_push:
+        description: Skip Docker Hub push (tests and scan only)
         required: false
         default: false
         type: boolean
@@ -77,36 +77,42 @@ jobs:
           severity: CRITICAL,HIGH
 
   push-dockerhub:
-    name: Push to Docker Hub
+    name: Push to Docker Hub (optional)
     runs-on: ubuntu-latest
     needs: [test, docker]
     if: >
       github.ref == 'refs/heads/main' &&
       (
         github.event_name == 'push' ||
-        (github.event_name == 'workflow_dispatch' && inputs.skip_deploy == false)
+        (github.event_name == 'workflow_dispatch' && inputs.skip_push == false)
       )
     steps:
       - uses: actions/checkout@v4
 
-      - name: Require Docker Hub secrets
+      - name: Check Docker Hub credentials
+        id: dockerhub
         env:
           DH_USER: ${{ secrets.DOCKERHUB_USERNAME }}
           DH_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
         run: |
-          if [ -z "${DH_USER}" ] || [ -z "${DH_TOKEN}" ]; then
-            echo "::error::Set repository secrets DOCKERHUB_USERNAME and DOCKERHUB_TOKEN."
-            exit 1
+          if [ -n "${DH_USER}" ] && [ -n "${DH_TOKEN}" ]; then
+            echo "enabled=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "DOCKERHUB_USERNAME/DOCKERHUB_TOKEN not set; skipping push."
+            echo "enabled=false" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: docker/setup-buildx-action@v3
+        if: steps.dockerhub.outputs.enabled == 'true'
 
       - uses: docker/login-action@v3
+        if: steps.dockerhub.outputs.enabled == 'true'
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and push
+        if: steps.dockerhub.outputs.enabled == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -116,111 +122,3 @@ jobs:
             docker.io/${{ env.DOCKER_IMAGE }}:sha-${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
-  deploy-render:
-    name: Deploy on Render (API)
-    runs-on: ubuntu-latest
-    needs: [test, docker, push-dockerhub]
-    if: >
-      needs.test.result == 'success' &&
-      needs.docker.result == 'success' &&
-      needs.push-dockerhub.result == 'success'
-    steps:
-      - name: Resolve Render credentials
-        id: render
-        env:
-          RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-          RENDER_API_TOKEN: ${{ secrets.RENDER_API_TOKEN }}
-          RENDER_SERVICE_ID: ${{ secrets.RENDER_SERVICE_ID }}
-          RENDER_SERVICE_ID_VAR: ${{ vars.RENDER_SERVICE_ID }}
-        run: |
-          set -euo pipefail
-          api_key="${RENDER_API_KEY:-${RENDER_API_TOKEN:-}}"
-          service_id="${RENDER_SERVICE_ID:-${RENDER_SERVICE_ID_VAR:-}}"
-          api_key="$(printf '%s' "${api_key}" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          service_id="$(printf '%s' "${service_id}" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          if [ -z "${api_key}" ]; then
-            echo "::error::Missing RENDER_API_KEY (Render → Account Settings → API Keys). Add as a repository secret, not only in Environment."
-            exit 1
-          fi
-          if [ -z "${service_id}" ]; then
-            echo "::error::Missing RENDER_SERVICE_ID (e.g. srv-xxxxxxxx from the service URL). Repository secret or variable RENDER_SERVICE_ID."
-            exit 1
-          fi
-          if echo "${service_id}" | grep -qE 'srv-[a-zA-Z0-9]+'; then
-            service_id="$(echo "${service_id}" | grep -oE 'srv-[a-zA-Z0-9]+' | head -1)"
-          fi
-          if ! echo "${service_id}" | grep -qE '^srv-[a-zA-Z0-9]+$'; then
-            echo "::error::RENDER_SERVICE_ID must look like srv-xxxxxxxx (got length ${#service_id})."
-            exit 1
-          fi
-          echo "Using Render service ${service_id}"
-          {
-            echo "RENDER_API_KEY<<EOF"
-            echo "${api_key}"
-            echo "EOF"
-            echo "RENDER_SERVICE_ID=${service_id}"
-          } >> "$GITHUB_ENV"
-
-      - name: Trigger deploy (pull docker.io/${{ env.DOCKER_IMAGE }}:latest)
-        id: deploy
-        run: |
-          set -euo pipefail
-          resp=$(curl -sS -w "\n%{http_code}" -X POST \
-            "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys" \
-            -H "Authorization: Bearer ${RENDER_API_KEY}" \
-            -H "Content-Type: application/json" \
-            -d '{"clearCache":"do_not_clear"}')
-          body="${resp%$'\n'*}"
-          code="${resp##*$'\n'}"
-          echo "HTTP ${code}"
-          echo "$body" | jq . || echo "$body"
-          if [ "${code}" != "201" ] && [ "${code}" != "200" ]; then
-            echo "::error::Render API returned HTTP ${code}. Check API key and service ID."
-            exit 1
-          fi
-          deploy_id=$(echo "$body" | jq -r '.id // empty')
-          if [ -z "${deploy_id}" ]; then
-            echo "::error::Could not read deploy id from Render response."
-            exit 1
-          fi
-          echo "deploy_id=${deploy_id}" >> "$GITHUB_OUTPUT"
-
-      - name: Wait for deploy (fail CI if deploy fails — previous live version stays up)
-        env:
-          DEPLOY_ID: ${{ steps.deploy.outputs.deploy_id }}
-        run: |
-          set -euo pipefail
-          echo "Polling deploy ${DEPLOY_ID} (on failure Render keeps the last successful release)."
-          for i in $(seq 1 80); do
-            resp=$(curl -fsS \
-              -H "Authorization: Bearer ${RENDER_API_KEY}" \
-              "https://api.render.com/v1/services/${RENDER_SERVICE_ID}/deploys/${DEPLOY_ID}")
-            status=$(echo "$resp" | jq -r '.status // empty')
-            echo "[$i] status=${status}"
-            case "${status}" in
-              live)
-                echo "Deploy succeeded."
-                exit 0
-                ;;
-              build_failed|update_failed|canceled|deactivated)
-                echo "::error::Render deploy failed (${status}). Production unchanged."
-                echo "$resp" | jq .
-                exit 1
-                ;;
-            esac
-            sleep 15
-          done
-          echo "::error::Deploy timed out."
-          exit 1
-
-      - name: Smoke check /healthz
-        env:
-          RENDER_SERVICE_URL: ${{ secrets.RENDER_SERVICE_URL }}
-        run: |
-          if [ -z "${RENDER_SERVICE_URL}" ]; then
-            echo "RENDER_SERVICE_URL not set; skipping HTTP check."
-            exit 0
-          fi
-          curl -fsS "${RENDER_SERVICE_URL}/healthz" | grep -q '"status"'
-          echo "Health OK: ${RENDER_SERVICE_URL}/healthz"

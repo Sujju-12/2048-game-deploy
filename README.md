@@ -1,53 +1,27 @@
 # 2048 Game — DevOps Lab
 
-A production-ready **Flask 2048** game used to practice containerization, CI, metrics, and cloud deploy. **Live hosting** is on **[Render](https://render.com)** via `render.yaml` and `Dockerfile`. Kubernetes/Helm assets in this repo are **optional reference** from the lab phase.
+A **Flask 2048** game with Docker, GitHub Actions (pytest + Trivy), Prometheus metrics, and optional Kubernetes/Helm reference material from the lab phase.
+
+**Status:** Project complete. The **Render** production deployment has been removed. Run the game locally or with Docker; CI still validates every push to `main`.
 
 ---
 
-## Project summary
+## What we built
 
-| Area | What we built |
-|------|----------------|
-| **Application** | 2048 in the browser (keyboard + touch), Flask API for moves/resets |
-| **Container** | Multi-stage-hardened `Dockerfile`, Gunicorn, non-root user, health checks |
-| **CI** | GitHub Actions: pytest, Docker build, Trivy (HIGH/CRITICAL) |
-| **Production** | Render Web Service (Docker), auto-deploy from `main`, `/healthz` health check |
-| **Observability** | Prometheus metrics at `/metrics` (`flask_http_*`, `game_*`) |
-| **Optional lab** | Kind, Helm, Prometheus, Grafana, Loki, NGINX Ingress (documented, not required for Render) |
-
-**Outcome:** One public URL on Render for the game; metrics and logs via Render; local K8s stack optional and removable ([`docs/TEARDOWN-KIND.md`](docs/TEARDOWN-KIND.md)).
+| Area | Details |
+|------|---------|
+| **Application** | 2048 in the browser, player names, high-score record API |
+| **Container** | Hardened `Dockerfile`, Gunicorn, `/healthz`, `/metrics` |
+| **CI** | [`.github/workflows/cicd.yml`](.github/workflows/cicd.yml) — pytest, Docker build, Trivy |
+| **Optional** | Push to `srujan12/2048-game` on Docker Hub if secrets are set |
+| **Lab reference** | Kind, Helm, Grafana, Loki docs under `docs/` and `helm/` |
 
 ---
 
-## Live endpoints (Render)
-
-Replace with your service name:
-
-| URL | Purpose |
-|-----|---------|
-| `https://<service>.onrender.com/` | Play the game |
-| `https://<service>.onrender.com/healthz` | Liveness |
-| `https://<service>.onrender.com/readyz` | Readiness |
-| `https://<service>.onrender.com/metrics` | Prometheus text format |
-
-Logs: **Render dashboard → your service → Logs**.
-
----
-
-## Quick start
-
-### Deploy (Render)
-
-1. Push this repo to GitHub.
-2. Render → **Blueprint** → connect repo → apply [`render.yaml`](render.yaml).  
-   Or: **Web Service** → Docker → health path `/healthz`.
-
-Full guide: [`docs/RENDER-DEPLOY.md`](docs/RENDER-DEPLOY.md).
-
-### Develop locally
+## Run locally
 
 ```bash
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 python app.py
 ```
@@ -55,10 +29,10 @@ python app.py
 Open http://localhost:5000
 
 ```bash
-pytest -q
+PYTHONPATH=. pytest -q
 ```
 
-### Run with Docker (same image as Render)
+### Docker
 
 ```bash
 docker build -t 2048-game .
@@ -71,25 +45,22 @@ docker run --rm -p 5000:5000 2048-game
 
 | Document | Description |
 |----------|-------------|
-| [`docs/RENDER-DEPLOY.md`](docs/RENDER-DEPLOY.md) | **Primary** — deploy and operate on Render |
-| [`docs/TEARDOWN-KIND.md`](docs/TEARDOWN-KIND.md) | Remove local Kind when using Render only |
-| [`docs/GRAFANA-QUERIES.md`](docs/GRAFANA-QUERIES.md) | PromQL examples |
-| [`docs/README.md`](docs/README.md) | Full documentation index |
+| [`docs/PROJECT-COMPLETE.md`](docs/PROJECT-COMPLETE.md) | Wrap-up and teardown notes (Render removed) |
+| [`docs/GITHUB-ACTIONS.md`](docs/GITHUB-ACTIONS.md) | CI workflow |
+| [`docs/README.md`](docs/README.md) | Full doc index |
+| [`docs/archive/render.yaml`](docs/archive/render.yaml) | Former Render Blueprint (reference only) |
 
-Optional lab: `HELM-DEPLOY.md`, `HELM-OBSERVABILITY.md`, `DOCKER-HUB.md`, `K8S-NGINX-INGRESS.md`.
+Optional lab: `HELM-DEPLOY.md`, `HELM-OBSERVABILITY.md`, `TEARDOWN-KIND.md`, etc.
 
 ---
 
 ## CI/CD
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — pytest, Docker build, Trivy; optional Docker Hub push; Render deploys from GitHub.
+On every **PR** and **push** to `main`: **test** → **docker + Trivy**.  
+**Docker Hub push** runs on `main` only when `DOCKERHUB_USERNAME` and `DOCKERHUB_TOKEN` secrets exist.
+
+You can remove unused GitHub secrets (`RENDER_API_KEY`, `RENDER_SERVICE_ID`, `RENDER_SERVICE_URL`) from the repository settings.
 
 ---
 
-## Security
-
-Do not commit secrets. `/metrics` on Render free tier is public (OK for demos).
-
----
-
-*Final stack: **GitHub → Render (Docker)** for the live game; optional Kind/Helm/Grafana docs retained for portfolio reference.*
+*Portfolio stack: Flask → Docker → GitHub Actions; cloud deploy was on Render during the lab and has been torn down.*
