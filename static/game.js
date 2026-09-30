@@ -1,13 +1,76 @@
 const SIZE = 4;
 let board = [];
 let score = 0;
-let best = Number(localStorage.getItem("2048-best") || 0);
+let best = 0;
+let playerName = "";
+let globalRecord = { name: "", score: 0 };
+let canPlay = false;
 let touchStart = null;
 
 const boardEl = document.getElementById("board");
 const scoreEl = document.getElementById("score");
 const bestEl = document.getElementById("best");
 const statusEl = document.getElementById("status");
+const recordEl = document.getElementById("record-display");
+const playerLabelEl = document.getElementById("player-label");
+const nameModalEl = document.getElementById("name-modal");
+const nameFormEl = document.getElementById("name-form");
+const playerNameInput = document.getElementById("player-name");
+
+function bestKey(name) {
+  return `2048-best-${name.toLowerCase()}`;
+}
+
+function loadPersonalBest() {
+  best = Number(localStorage.getItem(bestKey(playerName)) || 0);
+}
+
+function savePersonalBest() {
+  localStorage.setItem(bestKey(playerName), String(best));
+}
+
+function formatRecord(record) {
+  if (!record.name || record.score <= 0) return "—";
+  return `${record.name} · ${record.score}`;
+}
+
+function updateRecordDisplay() {
+  recordEl.textContent = formatRecord(globalRecord);
+}
+
+async function fetchGlobalRecord() {
+  try {
+    const response = await fetch("/api/highscore");
+    if (!response.ok) return;
+    const data = await response.json();
+    globalRecord = {
+      name: String(data.name || ""),
+      score: Number(data.score || 0),
+    };
+    updateRecordDisplay();
+  } catch {
+    // Offline or transient error — keep last known record.
+  }
+}
+
+async function tryUpdateGlobalRecord(currentScore) {
+  if (!playerName || currentScore <= globalRecord.score) return;
+  try {
+    const response = await fetch("/api/highscore", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: playerName, score: currentScore }),
+    });
+    if (!response.ok) return;
+    globalRecord = await response.json();
+    updateRecordDisplay();
+    if (currentScore === score) {
+      statusEl.textContent = `New record! ${playerName} — ${currentScore}`;
+    }
+  } catch {
+    // Ignore — gameplay continues.
+  }
+}
 
 function emptyBoard() {
   return Array.from({ length: SIZE }, () => Array(SIZE).fill(0));
@@ -31,6 +94,7 @@ function addRandomTile() {
 }
 
 function startGame() {
+  if (!canPlay) return;
   board = emptyBoard();
   score = 0;
   statusEl.textContent = "";
@@ -91,7 +155,17 @@ function setLine(direction, index, values) {
   }
 }
 
+function afterScoreUpdate() {
+  if (score > best) {
+    best = score;
+    savePersonalBest();
+  }
+  void tryUpdateGlobalRecord(score);
+}
+
 function move(direction) {
+  if (!canPlay) return false;
+
   let changed = false;
   let gainedTotal = 0;
 
@@ -105,10 +179,7 @@ function move(direction) {
 
   if (!changed) return false;
   score += gainedTotal;
-  if (score > best) {
-    best = score;
-    localStorage.setItem("2048-best", String(best));
-  }
+  afterScoreUpdate();
   addRandomTile();
   render();
   sendMetric("/api/move", { direction });
@@ -116,7 +187,8 @@ function move(direction) {
   if (board.flat().includes(2048)) {
     statusEl.textContent = "You reached 2048! Keep going or start a new game.";
   } else if (!canMove()) {
-    statusEl.textContent = "Game over. Start a new game.";
+    statusEl.textContent = `Game over, ${playerName}. Score: ${score}. Start a new game.`;
+    void tryUpdateGlobalRecord(score);
   }
   return true;
 }
@@ -141,6 +213,18 @@ function sendMetric(path, payload) {
   }).catch(() => {
     // Metrics should never interrupt gameplay.
   });
+}
+
+function beginSession(name) {
+  playerName = name.trim();
+  if (!playerName) return;
+  localStorage.setItem("2048-player-name", playerName);
+  playerLabelEl.textContent = playerName;
+  loadPersonalBest();
+  nameModalEl.classList.add("hidden");
+  boardEl.setAttribute("aria-hidden", "false");
+  canPlay = true;
+  startGame();
 }
 
 document.addEventListener("keydown", (event) => {
@@ -171,6 +255,16 @@ boardEl.addEventListener("touchend", (event) => {
   move(Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? "right" : "left") : (dy > 0 ? "down" : "up"));
 }, { passive: true });
 
+nameFormEl.addEventListener("submit", (event) => {
+  event.preventDefault();
+  beginSession(playerNameInput.value);
+});
+
 document.getElementById("new-game").addEventListener("click", startGame);
-bestEl.textContent = best;
-startGame();
+
+void fetchGlobalRecord();
+
+const savedName = localStorage.getItem("2048-player-name");
+if (savedName) {
+  playerNameInput.value = savedName;
+}
