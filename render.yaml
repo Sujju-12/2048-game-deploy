@@ -5,6 +5,7 @@ services:
     runtime: docker
     plan: free
     healthCheckPath: /healthz
-    autoDeploy: true
+    # Deploy after CI passes — GitHub Actions calls the Render deploy hook (.github/workflows/ci-cd.yml)
+    autoDeploy: false
     dockerfilePath: ./Dockerfile
     dockerContext: .
