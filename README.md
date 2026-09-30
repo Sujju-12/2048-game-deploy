@@ -4,6 +4,16 @@ A **Flask 2048** game with Docker, GitHub Actions (pytest + Trivy), Prometheus m
 
 **Status:** Project complete. The **Render** production deployment has been removed. Run the game locally or with Docker; CI still validates every push to `main`.
 
+## Quick start
+
+```bash
+pip install -r requirements.txt && python app.py
+# or
+docker build -t 2048-game . && docker run --rm -p 5000:5000 2048-game
+```
+
+Open http://localhost:5000
+
 ---
 
 ## What we built
