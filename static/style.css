@@ -45,6 +45,46 @@ h1 {
 }
 .scores span { display: block; font-size: 11px; font-weight: 700; }
 .scores strong { display: block; font-size: 24px; }
+.record-box strong { font-size: 15px; line-height: 1.25; word-break: break-word; }
+.player-line { margin: 8px 0 0; font-weight: 700; font-size: 14px; }
+.player-line strong { color: #8f7a66; }
+
+.name-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 20;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(119, 110, 101, 0.55);
+}
+.name-modal.hidden { display: none; }
+.name-modal-card {
+  width: min(100%, 360px);
+  padding: 24px;
+  border-radius: 8px;
+  background: #faf8ef;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
+}
+.name-modal-card h2 { margin: 0 0 8px; font-size: 28px; }
+.name-modal-card p { margin: 0 0 16px; line-height: 1.4; }
+.name-modal-card form { display: flex; flex-direction: column; gap: 12px; }
+.name-modal-card input {
+  padding: 12px;
+  border: 2px solid #bbada0;
+  border-radius: 4px;
+  font-size: 16px;
+}
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
 
 .intro { margin: 26px 0 12px; }
 .intro p { margin: 0; line-height: 1.4; }
