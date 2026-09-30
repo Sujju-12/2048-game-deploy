@@ -1,11 +1,11 @@
-# Render Blueprint: https://render.com/docs/blueprint-spec
+# Render pulls a pre-built image from Docker Hub (built & pushed by GitHub Actions).
+# https://render.com/docs/deploy-an-image
 services:
   - type: web
     name: 2048-game
-    runtime: docker
+    runtime: image
     plan: free
     healthCheckPath: /healthz
-    # Deploy after CI passes — GitHub Actions calls the Render deploy hook (.github/workflows/ci-cd.yml)
     autoDeploy: false
-    dockerfilePath: ./Dockerfile
-    dockerContext: .
+    image:
+      url: docker.io/srujan12/2048-game:latest
