@@ -1,0 +1,23 @@
+# Merge when upgrading kube-prometheus-stack:
+#   helm upgrade kube-prometheus-stack charts/kube-prometheus-stack \
+#     --namespace observability \
+#     -f helm/observability/kube-prometheus-stack-values.yaml \
+#     -f helm/observability/values-render-scrape.yaml \
+#     --wait --timeout 15m
+#
+# Replace YOUR-SERVICE with your Render hostname (no https://, no path).
+
+prometheus:
+  prometheusSpec:
+    additionalScrapeConfigs:
+      - job_name: render-2048-game
+        scheme: https
+        metrics_path: /metrics
+        scrape_interval: 60s
+        scrape_timeout: 30s
+        static_configs:
+          - targets:
+              - YOUR-SERVICE.onrender.com
+            labels:
+              environment: render
+              app: 2048-game
