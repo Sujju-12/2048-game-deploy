@@ -1,6 +1,9 @@
+import json
 import os
+import re
 import time
 from functools import wraps
+from pathlib import Path
 
 from flask import Flask, jsonify, render_template, request
 from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
@@ -24,6 +27,31 @@ GAME_MOVES = Counter(
     ["direction"],
 )
 GAME_RESETS = Counter("game_resets_total", "Total 2048 game resets")
+
+HIGHSCORE_PATH = Path(os.getenv("HIGHSCORE_FILE", "/tmp/2048-highscore.json"))
+_NAME_RE = re.compile(r"^[\w][\w\s'.-]{0,39}$", re.UNICODE)
+
+
+def _load_highscore():
+    try:
+        if HIGHSCORE_PATH.exists():
+            data = json.loads(HIGHSCORE_PATH.read_text(encoding="utf-8"))
+            name = str(data.get("name", "")).strip()[:40]
+            score = int(data.get("score", 0))
+            return {"name": name, "score": max(0, score)}
+    except (OSError, json.JSONDecodeError, TypeError, ValueError):
+        pass
+    return {"name": "", "score": 0}
+
+
+def _save_highscore(name: str, score: int) -> dict:
+    current = _load_highscore()
+    if score <= current["score"]:
+        return current
+    record = {"name": name, "score": score}
+    HIGHSCORE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    HIGHSCORE_PATH.write_text(json.dumps(record), encoding="utf-8")
+    return record
 
 
 def instrument_response(func):
@@ -75,6 +103,29 @@ def record_move():
 def record_reset():
     GAME_RESETS.inc()
     return jsonify({"status": "ok"}), 200
+
+
+@app.route("/api/highscore", methods=["GET"])
+@instrument_response
+def get_highscore():
+    return jsonify(_load_highscore()), 200
+
+
+@app.route("/api/highscore", methods=["POST"])
+@instrument_response
+def post_highscore():
+    payload = request.get_json(silent=True) or {}
+    name = str(payload.get("name", "")).strip()
+    if not name or not _NAME_RE.match(name):
+        return jsonify({"error": "invalid name"}), 400
+    try:
+        score = int(payload.get("score", -1))
+    except (TypeError, ValueError):
+        return jsonify({"error": "invalid score"}), 400
+    if score < 0 or score > 10_000_000:
+        return jsonify({"error": "invalid score"}), 400
+    record = _save_highscore(name, score)
+    return jsonify(record), 200
 
 
 @app.route("/metrics", methods=["GET"])
