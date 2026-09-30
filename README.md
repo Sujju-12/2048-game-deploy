@@ -1,141 +1,95 @@
-# 2048 Game — DevOps / GitOps Lab
+# 2048 Game — DevOps Lab
 
-A small Flask 2048 game used as the application workload for an end-to-end local DevOps platform.
+A production-ready **Flask 2048** game used to practice containerization, CI, metrics, and cloud deploy. **Live hosting** is on **[Render](https://render.com)** via `render.yaml` and `Dockerfile`. Kubernetes/Helm assets in this repo are **optional reference** from the lab phase.
 
-## Application layer
+---
 
-The application currently provides:
+## Project summary
 
-- Browser-playable 2048 game with keyboard and touch controls.
-- Flask HTTP server.
-- `/healthz` for liveness checks.
-- `/readyz` for readiness checks.
-- `/metrics` in Prometheus exposition format.
-- Game move and reset counters for observability.
-- JSON API endpoints used by the frontend.
-- Production container entrypoint through Gunicorn.
-- Non-root container user.
-- Environment variables documented through `.env.example`.
-- Basic automated tests with pytest.
+| Area | What we built |
+|------|----------------|
+| **Application** | 2048 in the browser (keyboard + touch), Flask API for moves/resets |
+| **Container** | Multi-stage-hardened `Dockerfile`, Gunicorn, non-root user, health checks |
+| **CI** | GitHub Actions: pytest, Docker build, Trivy (HIGH/CRITICAL) |
+| **Production** | Render Web Service (Docker), auto-deploy from `main`, `/healthz` health check |
+| **Observability** | Prometheus metrics at `/metrics` (`flask_http_*`, `game_*`) |
+| **Optional lab** | Kind, Helm, Prometheus, Grafana, Loki, NGINX Ingress (documented, not required for Render) |
 
-Flask's built-in server is intended for development rather than production deployment, so the container runs Gunicorn instead. See the Flask documentation for the distinction. 
+**Outcome:** One public URL on Render for the game; metrics and logs via Render; local K8s stack optional and removable ([`docs/TEARDOWN-KIND.md`](docs/TEARDOWN-KIND.md)).
 
-## Run locally
+---
+
+## Live endpoints (Render)
+
+Replace with your service name:
+
+| URL | Purpose |
+|-----|---------|
+| `https://<service>.onrender.com/` | Play the game |
+| `https://<service>.onrender.com/healthz` | Liveness |
+| `https://<service>.onrender.com/readyz` | Readiness |
+| `https://<service>.onrender.com/metrics` | Prometheus text format |
+
+Logs: **Render dashboard → your service → Logs**.
+
+---
+
+## Quick start
+
+### Deploy (Render)
+
+1. Push this repo to GitHub.
+2. Render → **Blueprint** → connect repo → apply [`render.yaml`](render.yaml).  
+   Or: **Web Service** → Docker → health path `/healthz`.
+
+Full guide: [`docs/RENDER-DEPLOY.md`](docs/RENDER-DEPLOY.md).
+
+### Develop locally
 
 ```bash
-python -m venv .venv
-# Linux/macOS
-source .venv/bin/activate
-# Windows PowerShell
-# .venv\Scripts\Activate.ps1
-
+python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
 
-Open `http://localhost:5000`.
-
-Health endpoint:
-
-```bash
-curl http://localhost:5000/healthz
-```
-
-Metrics:
-
-```bash
-curl http://localhost:5000/metrics
-```
-
-Tests:
+Open http://localhost:5000
 
 ```bash
 pytest -q
 ```
 
-## Build the container
+### Run with Docker (same image as Render)
 
 ```bash
-docker build -t 2048-game:dev .
-docker run --rm -p 5000:5000 2048-game:dev
+docker build -t 2048-game .
+docker run --rm -p 5000:5000 2048-game
 ```
 
-Then open `http://localhost:5000`.
+---
 
-## Current DevOps platform
+## Documentation
 
-The repository now has the first local deployment layer:
+| Document | Description |
+|----------|-------------|
+| [`docs/RENDER-DEPLOY.md`](docs/RENDER-DEPLOY.md) | **Primary** — deploy and operate on Render |
+| [`docs/TEARDOWN-KIND.md`](docs/TEARDOWN-KIND.md) | Remove local Kind when using Render only |
+| [`docs/GRAFANA-QUERIES.md`](docs/GRAFANA-QUERIES.md) | PromQL examples |
+| [`docs/README.md`](docs/README.md) | Full documentation index |
 
-1. GitHub pull-request/main workflow.
-2. Pytest application tests.
-3. Docker image build.
-4. Trivy HIGH/CRITICAL vulnerability scanning.
-5. Docker Hub image publishing on pushes to main.
-6. Local Kind Kubernetes deployment.
-7. Kubernetes Deployment with 2 replicas and rolling updates.
-8. Kubernetes Service and liveness/readiness probes.
-9. Local deployment helper under scripts/kind-deploy.sh.
+Optional lab: `HELM-DEPLOY.md`, `HELM-OBSERVABILITY.md`, `DOCKER-HUB.md`, `K8S-NGINX-INGRESS.md`.
 
-The next platform layers can be added incrementally:
+---
 
-10. Helm chart for the Flask application.
-11. GitOps repository structure and Argo CD.
-12. Horizontal scaling and rollout strategies.
-13. Prometheus and Grafana dashboards/alerts.
-14. Grafana Loki for centralized application logs.
+## CI/CD
 
-## GitHub Actions + Docker Hub
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) — pytest, Docker build, Trivy; optional Docker Hub push; Render deploys from GitHub.
 
-The workflow is `.github/workflows/ci.yml`.
+---
 
-Configure these GitHub repository secrets before pushing to `main`:
+## Security
 
-- `DOCKERHUB_USERNAME` — your Docker Hub username.
-- `DOCKERHUB_TOKEN` — a Docker Hub access token with permission to push the repository.
+Do not commit secrets. `/metrics` on Render free tier is public (OK for demos).
 
-The workflow runs tests on pull requests and on pushes to `main`. On `main`, it builds and scans the image and publishes:
+---
 
-```text
-<DOCKERHUB_USERNAME>/2048-game:latest
-<DOCKERHUB_USERNAME>/2048-game:sha-<commit-sha>
-```
-
-GitHub Actions cannot directly deploy into the Kind cluster running on your personal machine. The local Kind deployment is therefore intentionally a separate local step.
-
-## Local Kind deployment
-
-Create a Kind cluster if you do not already have one:
-
-```bash
-kind create cluster --name devops-lab
-```
-
-For a local-only image workflow:
-
-```bash
-bash scripts/kind-deploy.sh
-```
-
-The script builds `2048-game:dev`, loads it into Kind, applies the Kubernetes resources, and waits for the rollout.
-
-Then expose the Service locally:
-
-```bash
-kubectl -n game-lab port-forward svc/2048-game 5000:5000
-```
-
-Open `http://localhost:5000`.
-
-Useful checks:
-
-```bash
-kubectl get pods -n game-lab
-kubectl get svc -n game-lab
-kubectl describe deployment 2048-game -n game-lab
-kubectl logs -n game-lab deployment/2048-game
-kubectl rollout status deployment/2048-game -n game-lab
-```
-
-## Security rule
-
-Never commit real secrets, tokens, passwords, private keys, or production `.env` files. Use GitHub Actions secrets for CI credentials and Kubernetes Secrets or a dedicated secret-management workflow later in the platform build.
+*Final stack: **GitHub → Render (Docker)** for the live game; optional Kind/Helm/Grafana docs retained for portfolio reference.*
