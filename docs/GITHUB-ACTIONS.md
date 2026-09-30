@@ -1,26 +1,34 @@
-# GitHub Actions — test & deploy
+# GitHub Actions CI (`cicd.yml`)
 
-Workflow: [`.github/workflows/ci-cd.yml`](../.github/workflows/ci-cd.yml)
+Workflow: [`.github/workflows/cicd.yml`](../.github/workflows/cicd.yml)
 
-## What runs when
+**Render deploy was removed** when the project ended. CI is test + security scan only, with an optional Docker Hub push.
 
-| Event | Test | Docker + Trivy | Deploy Render |
-|--------|------|----------------|---------------|
-| Pull request to `main` | Yes | Yes | No |
-| Push to `main` | Yes | Yes | Yes |
-| Manual workflow | Yes | Yes | Yes (unless skip deploy) |
+## Pipeline
 
-## Setup
+```text
+test → docker (Trivy) → push-dockerhub (optional, main only)
+```
 
-1. Render → your service → **Settings** → **Deploy Hook** → copy URL.
-2. GitHub → **Settings → Secrets → Actions** → `RENDER_DEPLOY_HOOK` = that URL.
-3. Optional: `RENDER_SERVICE_URL` = `https://your-app.onrender.com`
-4. In Render UI, turn **off** auto-deploy if it was on (repo uses `autoDeploy: false` in `render.yaml`).
+| Trigger | Test | Trivy | Docker Hub push |
+|---------|------|-------|-----------------|
+| Pull request | Yes | Yes | No |
+| Push to `main` | Yes | Yes | Yes, if secrets set |
+| Manual | Yes | Yes | Unless **skip push** is enabled |
 
-## Feature branches
+## Secrets (optional)
 
-Open a **PR to `main`** — tests run, no deploy. Merge → deploy.
+| Secret | Purpose |
+|--------|---------|
+| `DOCKERHUB_USERNAME` | e.g. `srujan12` |
+| `DOCKERHUB_TOKEN` | Hub access token (Read & Write) |
+
+If these are missing, the push job logs a skip message and **does not fail** the workflow.
 
 ## Manual run
 
-**Actions** → **Test and Deploy** → **Run workflow**.
+**Actions** → **CI/CD** → **Run workflow** on `main`.
+
+## Historical
+
+Render API deploy (`RENDER_API_KEY`, `RENDER_SERVICE_ID`) was used during the lab. Remove those secrets from the repo if you no longer need them.

@@ -1,0 +1,11 @@
+# ARCHIVED — Render service removed. Kept for reference only.
+# Former flow: GitHub Actions pushed docker.io/srujan12/2048-game:latest, then triggered Render API deploy.
+services:
+  - type: web
+    name: 2048-game
+    runtime: image
+    plan: free
+    healthCheckPath: /healthz
+    autoDeploy: false
+    image:
+      url: docker.io/srujan12/2048-game:latest

@@ -1,13 +1,15 @@
 # Documentation index
 
-## Production (Render)
+## Current
 
-1. [RENDER-DEPLOY.md](RENDER-DEPLOY.md)
-2. [TEARDOWN-KIND.md](TEARDOWN-KIND.md)
-3. [GRAFANA-QUERIES.md](GRAFANA-QUERIES.md)
+1. [PROJECT-COMPLETE.md](PROJECT-COMPLETE.md) — project wrap-up (Render torn down)
+2. [GITHUB-ACTIONS.md](GITHUB-ACTIONS.md) — CI workflow
+3. [GRAFANA-QUERIES.md](GRAFANA-QUERIES.md) — PromQL examples (lab)
 
-## Optional Kubernetes lab
+## Archive / optional lab
 
-4. [DOCKER-HUB.md](DOCKER-HUB.md) · 5. [HELM-DEPLOY.md](HELM-DEPLOY.md) · 6. [HELM-OBSERVABILITY.md](HELM-OBSERVABILITY.md) · 7. [RENDER-OBSERVABILITY.md](RENDER-OBSERVABILITY.md) · 8. [K8S-NGINX-INGRESS.md](K8S-NGINX-INGRESS.md) · 9. [DEPLOY-FREE.md](DEPLOY-FREE.md)
+- [archive/render.yaml](archive/render.yaml) — former Render Blueprint
+- [RENDER-DEPLOY.md](RENDER-DEPLOY.md) — historical Render + CI notes
+- [TEARDOWN-KIND.md](TEARDOWN-KIND.md) · [DOCKER-HUB.md](DOCKER-HUB.md) · [HELM-DEPLOY.md](HELM-DEPLOY.md) · [HELM-OBSERVABILITY.md](HELM-OBSERVABILITY.md) · [RENDER-OBSERVABILITY.md](RENDER-OBSERVABILITY.md) · [K8S-NGINX-INGRESS.md](K8S-NGINX-INGRESS.md) · [DEPLOY-FREE.md](DEPLOY-FREE.md)
 
-**Production:** GitHub → Render (`Dockerfile`, `render.yaml`). Kind/Helm not required.
+**Today:** run locally or via Docker; GitHub Actions validates the repo on each push.
